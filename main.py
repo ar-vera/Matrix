@@ -11,14 +11,17 @@ def read_matrix(filename):
             matrix.append(row)
     return matrix
 
-def compute_element(args):
-    index, A, B = args
+def compute_and_write_element(args):
+    index, A, B, filename, lock = args
     i, j = index
     res = 0
     N = len(A[0])
     for k in range(N):
         res += A[i][k] * B[k][j]
-    return (index, res)
+    line = f"{i} {j} {res}\n"
+    with lock:
+        with open(filename, 'a') as f:
+            f.write(line)
 
 def main():
     if len(sys.argv) != 3:
@@ -42,23 +45,36 @@ def main():
         for j in range(result_cols):
             indices.append((i, j))
 
-    args = []
-    for index in indices:
-        args.append((index, A, B))
-
     num_processes = 4
 
+    manager = multiprocessing.Manager()
+    lock = manager.Lock()
+
+    intermediate_file = 'intermediate_results.txt'
+
+    open(intermediate_file, 'w').close()
+
+    args = []
+    for index in indices:
+        args.append((index, A, B, intermediate_file, lock))
+
     with multiprocessing.Pool(processes=num_processes) as pool:
-        results = pool.map(compute_element, args)
+        pool.map(compute_and_write_element, args)
 
     result_matrix = []
     for i in range(result_rows):
-        row = [0] * result_cols
-        result_matrix.append(row)
+        result_matrix.append([0] * result_cols)
 
-    for result in results:
-        (i, j), value = result
-        result_matrix[i][j] = value
+    with open(intermediate_file, 'r') as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            i_str, j_str, value_str = line.split()
+            i = int(i_str)
+            j = int(j_str)
+            value = float(value_str)
+            result_matrix[i][j] = value
 
     with open('result_matrix.txt', 'w') as f:
         for row in result_matrix:
