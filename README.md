@@ -1,2 +1,2 @@
 # Matrix
-The code for working with matrixes 
+Code for working with matrixes via multiprocessor computing
